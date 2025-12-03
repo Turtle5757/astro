@@ -2,23 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Neon Shooter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Game Remake</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="menu">
-        <h1>Neon Shooter</h1>
-        <button id="playBtn">Play</button>
+    <div id="main-menu" class="menu active">
+        <h1>Game Title</h1>
+        <button id="play-btn">Play</button>
+        <button id="upgrades-btn">Upgrades</button>
+        <button id="quit-btn">Quit</button>
     </div>
 
-    <div id="upgradePanel" class="hidden">
-        <h2>Upgrades</h2>
-        <div id="upgrades"></div>
-        <p>XP: <span id="xpDisplay">0</span></p>
-        <button id="backToMenu">Back to Menu</button>
+    <div id="upgrade-menu" class="menu">
+        <h1>Upgrades</h1>
+        <div id="upgrade-list"></div>
+        <button id="back-btn">Back</button>
     </div>
 
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <canvas id="game-canvas" width="800" height="600"></canvas>
 
     <script src="game.js"></script>
 </body>
