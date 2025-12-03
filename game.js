@@ -1,207 +1,262 @@
-// AstroRogue JS version - full game
-// Canvas setup
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let SCREEN_W = window.innerWidth;
-let SCREEN_H = window.innerHeight;
-canvas.width = SCREEN_W;
-canvas.height = SCREEN_H;
 
-// Utility functions
-function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
-function distanceSq(a,b) { return (a.x-b.x)**2 + (a.y-b.y)**2; }
-function rand(min,max) { return Math.random()*(max-min)+min; }
-function now() { return performance.now()/1000; }
+const hud = {
+  health: document.getElementById('health'),
+  xp: document.getElementById('xp'),
+  level: document.getElementById('level')
+};
 
-// Vector class
-class Vec {
-    constructor(x,y){ this.x=x; this.y=y; }
-    add(v){ return new Vec(this.x+v.x,this.y+v.y); }
-    sub(v){ return new Vec(this.x-v.x,this.y-v.y); }
-    mul(s){ return new Vec(this.x*s,this.y*s); }
-    length(){ return Math.sqrt(this.x**2+this.y**2); }
-    normalize(){ let l=this.length(); return l?this.mul(1/l):new Vec(0,0); }
-}
-
-// Global persistent data
-let saveData = JSON.parse(localStorage.getItem('astroSave')||'{}');
-saveData.coreShards = saveData.coreShards||0;
-saveData.bestScore = saveData.bestScore||0;
-saveData.prestigePoints = saveData.prestigePoints||0;
-saveData.normalUpgrades = saveData.normalUpgrades||{};
-saveData.coreUpgrades = saveData.coreUpgrades||{};
-saveData.prestigeShop = saveData.prestigeShop||{};
-
-// ---------------- Player ----------------
-class Player {
-    constructor(){
-        this.pos = new Vec(SCREEN_W/2, SCREEN_H/2);
-        this.radius = 14;
-        this.speed = 250;
-        this.hp = this.maxHp = 100;
-        this.money = 0;
-        this.score = 0;
-        this.bulletDamage = 15;
-        this.skillPoints = 0;
-        this.homingCd = 0;
-        this.homingUnlocked = false;
-        this.prestigeMultiplier = saveData.prestigeMultiplier||1.0;
-    }
-    move(dt, keys){
-        let dir = new Vec(0,0);
-        if(keys['w']) dir.y -= 1;
-        if(keys['s']) dir.y +=1;
-        if(keys['a']) dir.x -=1;
-        if(keys['d']) dir.x +=1;
-        if(dir.length()>0) this.pos = this.pos.add(dir.normalize().mul(this.speed*dt));
-        this.pos.x = clamp(this.pos.x,0,SCREEN_W);
-        this.pos.y = clamp(this.pos.y,0,SCREEN_H);
-    }
-    takeDamage(d){ this.hp-=d; if(this.hp<=0) this.alive=false; }
-    draw(){
-        ctx.fillStyle = "#88DDFF";
-        ctx.beginPath();
-        ctx.arc(this.pos.x,this.pos.y,this.radius,0,Math.PI*2);
-        ctx.fill();
-    }
-    canShoot(){ return true; } // simplified
-}
-
-// ---------------- Bullet ----------------
-class Bullet {
-    constructor(pos, vel, dmg, owner){
-        this.pos=pos;
-        this.vel=vel;
-        this.dmg=dmg;
-        this.radius=4;
-        this.owner=owner;
-        this.life=2;
-    }
-    update(dt){ this.pos=this.pos.add(this.vel.mul(dt)); this.life-=dt; }
-    draw(){
-        ctx.fillStyle = (this.owner=="player")?"#FFDD55":"#FF5555";
-        ctx.beginPath();
-        ctx.arc(this.pos.x,this.pos.y,this.radius,0,Math.PI*2);
-        ctx.fill();
-    }
-}
-
-// ---------------- Enemy ----------------
-class Enemy {
-    constructor(pos,hp,speed){
-        this.pos = pos;
-        this.hp = hp;
-        this.speed = speed;
-        this.radius = 12;
-    }
-    update(dt,player){
-        let dir = player.pos.sub(this.pos);
-        if(dir.length()>0) this.pos = this.pos.add(dir.normalize().mul(this.speed*dt));
-    }
-    takeDamage(d){ this.hp-=d; }
-    draw(){
-        ctx.fillStyle = "#FF6666";
-        ctx.beginPath();
-        ctx.arc(this.pos.x,this.pos.y,this.radius,0,Math.PI*2);
-        ctx.fill();
-    }
-}
-
-// ---------------- Boss ----------------
-class Boss {
-    constructor(kind,pos,hp,speed){
-        this.kind=kind;
-        this.pos=pos;
-        this.hp=hp;
-        this.maxHp=hp;
-        this.speed=speed;
-        this.radius=50;
-        this.fireCd=0;
-    }
-    update(dt,player,bullets,enemies){
-        let dir = player.pos.sub(this.pos);
-        if(this.kind=="Juggernaut" && dir.length()>60) this.pos=this.pos.add(dir.normalize().mul(this.speed*0.5*dt));
-        if(this.kind=="Sentinel" && dir.length()>240) this.pos=this.pos.add(dir.normalize().mul(this.speed*dt));
-        if(this.kind=="HiveQueen" && dir.length()>120) this.pos=this.pos.add(dir.normalize().mul(this.speed*0.4*dt));
-    }
-    draw(){
-        ctx.fillStyle = this.kind=="Juggernaut"?"#C8503C":(this.kind=="Sentinel"?"#78A0DC":"#C88CCD");
-        ctx.beginPath();
-        ctx.arc(this.pos.x,this.pos.y,this.radius,0,Math.PI*2);
-        ctx.fill();
-        // top bar
-        let w=420, hpw=w*(this.hp/this.maxHp);
-        ctx.fillStyle="#1E1E1E";
-        ctx.fillRect(SCREEN_W/2-w/2,18,w,18);
-        ctx.fillStyle="#C83C3C";
-        ctx.fillRect(SCREEN_W/2-w/2,18,hpw,18);
-        ctx.fillStyle="#FFF";
-        ctx.font="16px Arial";
-        ctx.fillText(`Boss: ${this.kind} — ${Math.floor(this.hp)}/${Math.floor(this.maxHp)} HP`, SCREEN_W/2-w/2+6,14);
-    }
-}
-
-// ---------------- Game State ----------------
 let keys = {};
-let bullets = [];
-let enemies = [];
-let bosses = [];
-let player = new Player();
-let lastTime = now();
-let state="menu";
-let menuIdx=0;
-let spawnerTimer=0;
+let mouse = {x: 0, y: 0, pressed: false};
 
-// ---------------- Input ----------------
-window.addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
-window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-canvas.addEventListener('mousedown',e=>mouseHeld=true);
-canvas.addEventListener('mouseup',e=>mouseHeld=false);
-let mouseHeld=false;
+// Player
+const player = {
+  x: canvas.width/2,
+  y: canvas.height/2,
+  radius: 15,
+  speed: 5,
+  health: 100,
+  xp: 0,
+  level: 1,
+  bullets: []
+};
 
-// ---------------- Main Loop ----------------
-function gameLoop(){
-    let tnow = now();
-    let dt = Math.min(1/30, tnow-lastTime);
-    lastTime=tnow;
+// Enemies
+const enemies = [];
+const enemyTypes = ["Chaser","Shooter","Dasher","Tank","Orbiter","Splitter"];
 
-    ctx.clearRect(0,0,SCREEN_W,SCREEN_H);
+// Bosses
+const bosses = ["Juggernaut","Sentinel","Hive"];
+let bossSpawned = false;
 
-    if(state=="menu"){
-        ctx.fillStyle="#0A0C16";
-        ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
-        ctx.fillStyle="#FFFF96";
-        ctx.font="36px Arial";
-        ctx.fillText("AstroRogue",SCREEN_W/2-120,60);
-        let opts = ["Play","Quit"];
-        ctx.font="26px Arial";
-        for(let i=0;i<opts.length;i++){
-            ctx.fillStyle = (i==menuIdx)?"#FFFF96":"#DDDDDD";
-            ctx.fillText(opts[i],SCREEN_W/2-60,140+i*60);
-        }
-    }
-    else if(state=="game"){
-        player.move(dt,keys);
-        player.draw();
+// Skill tree
+const skills = {
+  damage: 0,
+  health: 0,
+  speed: 0,
+  fireRate: 0
+};
 
-        bullets.forEach(b=>{b.update(dt); b.draw();});
-        bullets = bullets.filter(b=>b.life>0);
+// Prestige
+let prestige = 0;
 
-        enemies.forEach(e=>{ e.update(dt,player); e.draw();});
-        enemies = enemies.filter(e=>e.hp>0);
+// Key/mouse events
+document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
+});
+canvas.addEventListener('mousedown', () => mouse.pressed = true);
+canvas.addEventListener('mouseup', () => mouse.pressed = false);
 
-        bosses.forEach(b=>{ b.update(dt,player,bullets,enemies); b.draw();});
-        bosses = bosses.filter(b=>b.hp>0);
+// HUD buttons
+const skillMenu = document.getElementById('menu');
+document.getElementById('skillButton').addEventListener('click', () => skillMenu.classList.remove('hidden'));
+document.getElementById('closeSkill').addEventListener('click', () => skillMenu.classList.add('hidden'));
+document.getElementById('prestigeButton').addEventListener('click', () => {
+  prestige++;
+  player.level = 1;
+  player.xp = 0;
+  player.health = 100;
+  alert('Prestige increased! Current Prestige: ' + prestige);
+  saveGame();
+});
 
-        spawnerTimer+=dt;
-        if(spawnerTimer>2){
-            spawnerTimer=0;
-            enemies.push(new Enemy(new Vec(rand(0,SCREEN_W),rand(0,SCREEN_H)),20,100));
-        }
-    }
-
-    requestAnimationFrame(gameLoop);
+// Skill tree buttons
+const skillDiv = document.getElementById('skills');
+for (let skill in skills) {
+  const btn = document.createElement('button');
+  btn.innerText = `${skill} (${skills[skill]})`;
+  btn.className = 'skillBtn';
+  btn.onclick = () => { skills[skill]++; btn.innerText = `${skill} (${skills[skill]})`; saveGame(); };
+  skillDiv.appendChild(btn);
 }
 
-gameLoop();
+// Bullet class
+class Bullet {
+  constructor(x,y,dx,dy){
+    this.x = x;
+    this.y = y;
+    this.dx = dx;
+    this.dy = dy;
+    this.radius = 5;
+  }
+  update(){
+    this.x += this.dx;
+    this.y += this.dy;
+  }
+  draw(){
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+    ctx.fillStyle = 'yellow';
+    ctx.fill();
+  }
+}
 
+// Enemy class
+class Enemy {
+  constructor(x,y,type){
+    this.x = x;
+    this.y = y;
+    this.type = type;
+    this.radius = 15 + Math.random()*10;
+    this.speed = 1 + Math.random()*2;
+    this.health = 20 + Math.random()*30;
+    this.angle = Math.random()*Math.PI*2;
+  }
+  update(){
+    switch(this.type){
+      case "Chaser":
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.hypot(dx,dy);
+        this.x += (dx/dist)*this.speed;
+        this.y += (dy/dist)*this.speed;
+        break;
+      case "Shooter":
+        // stays in place for simplicity
+        break;
+      case "Orbiter":
+        this.angle += 0.05;
+        this.x += Math.cos(this.angle)*this.speed;
+        this.y += Math.sin(this.angle)*this.speed;
+        break;
+      case "Dasher":
+        if(Math.random()<0.02){
+          const dx = player.x - this.x;
+          const dy = player.y - this.y;
+          const dist = Math.hypot(dx,dy);
+          this.x += (dx/dist)*this.speed*5;
+          this.y += (dy/dist)*this.speed*5;
+        }
+        break;
+      case "Tank":
+        this.speed = 0.5;
+        const tdx = player.x - this.x;
+        const tdy = player.y - this.y;
+        const tdist = Math.hypot(tdx,tdy);
+        this.x += (tdx/tdist)*this.speed;
+        this.y += (tdy/tdist)*this.speed;
+        break;
+      case "Splitter":
+        this.x += Math.random()*2-1;
+        this.y += Math.random()*2-1;
+        break;
+    }
+  }
+  draw(){
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+    ctx.fillStyle = 'red';
+    ctx.fill();
+  }
+}
+
+// Spawn enemies
+function spawnEnemy(){
+  const x = Math.random()*canvas.width;
+  const y = Math.random()*canvas.height;
+  const type = enemyTypes[Math.floor(Math.random()*enemyTypes.length)];
+  enemies.push(new Enemy(x,y,type));
+}
+
+// Game loop
+function update(){
+  // Movement
+  if(keys['w']) player.y -= player.speed + skills.speed;
+  if(keys['s']) player.y += player.speed + skills.speed;
+  if(keys['a']) player.x -= player.speed + skills.speed;
+  if(keys['d']) player.x += player.speed + skills.speed;
+
+  // Shooting
+  if(mouse.pressed){
+    const angle = Math.atan2(mouse.y-player.y, mouse.x-player.x);
+    player.bullets.push(new Bullet(player.x,player.y,Math.cos(angle)*10,Math.sin(angle)*10));
+    mouse.pressed = false; // semi-auto fire, modify for full auto
+  }
+
+  // Update bullets
+  player.bullets.forEach((b,i)=>{
+    b.update();
+    // Check collision with enemies
+    enemies.forEach((e,j)=>{
+      const dist = Math.hypot(b.x-e.x,b.y-e.y);
+      if(dist < b.radius + e.radius){
+        e.health -= 10 + skills.damage;
+        if(e.health <= 0){
+          player.xp += 10;
+          enemies.splice(j,1);
+          if(player.xp >= player.level*50){
+            player.level++;
+            player.xp = 0;
+          }
+        }
+        player.bullets.splice(i,1);
+      }
+    });
+    // Remove offscreen
+    if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height){
+      player.bullets.splice(i,1);
+    }
+  });
+
+  // Update enemies
+  enemies.forEach(e => e.update());
+
+  // Update HUD
+  hud.health.innerText = `Health: ${player.health}`;
+  hud.xp.innerText = `XP: ${player.xp}`;
+  hud.level.innerText = `Level: ${player.level}`;
+}
+
+// Draw loop
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Draw player
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.radius,0,Math.PI*2);
+  ctx.fillStyle = 'lime';
+  ctx.fill();
+
+  // Draw bullets
+  player.bullets.forEach(b => b.draw());
+
+  // Draw enemies
+  enemies.forEach(e => e.draw());
+}
+
+// Main loop
+function loop(){
+  if(Math.random()<0.02) spawnEnemy(); // spawn rate
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+
+// Save/load system
+function saveGame(){
+  const data = {
+    player,
+    skills,
+    prestige
+  };
+  localStorage.setItem('shooterSave',JSON.stringify(data));
+}
+
+function loadGame(){
+  const data = JSON.parse(localStorage.getItem('shooterSave'));
+  if(data){
+    Object.assign(player,data.player);
+    Object.assign(skills,data.skills);
+    prestige = data.prestige;
+  }
+}
+
+loadGame();
+setInterval(saveGame,5000);
