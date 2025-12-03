@@ -1,33 +1,44 @@
 body {
     margin: 0;
+    padding: 0;
     font-family: Arial, sans-serif;
     background: #111;
     color: #fff;
     text-align: center;
 }
 
-#menu, #upgradePanel {
+.menu {
+    display: none;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
 }
 
+.menu.active {
+    display: block;
+}
+
 button {
     display: block;
     margin: 10px auto;
     padding: 10px 20px;
-    font-size: 18px;
+    font-size: 20px;
     cursor: pointer;
+    background-color: #222;
+    color: #fff;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    transition: 0.2s;
 }
 
-.hidden {
-    display: none;
+button:hover {
+    background-color: #555;
 }
 
 canvas {
     display: block;
     margin: 0 auto;
     background: #000;
-    border: 2px solid #0ff;
+    border: 2px solid #fff;
 }
