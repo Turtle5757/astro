@@ -1,13 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AstroRogue Web</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browser Shooter Game</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<script src="game.js"></script>
+  <div id="hud">
+    <div id="health">Health: 100</div>
+    <div id="xp">XP: 0</div>
+    <div id="level">Level: 1</div>
+    <button id="skillButton">Skill Tree</button>
+    <button id="prestigeButton">Prestige</button>
+  </div>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+  <div id="menu" class="hidden">
+    <h2>Skill Tree</h2>
+    <div id="skills"></div>
+    <button id="closeSkill">Close</button>
+  </div>
+
+  <script src="game.js"></script>
 </body>
 </html>
