@@ -3,25 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Browser Shooter Game</title>
+  <title>Astro Rogue</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="hud">
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="ui">
     <div id="health">Health: 100</div>
     <div id="xp">XP: 0</div>
-    <div id="level">Level: 1</div>
-    <button id="skillButton">Skill Tree</button>
-    <button id="prestigeButton">Prestige</button>
+    <div id="upgrades">
+      <h3>Upgrades</h3>
+      <ul id="upgradeList"></ul>
+    </div>
   </div>
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
-
-  <div id="menu" class="hidden">
-    <h2>Skill Tree</h2>
-    <div id="skills"></div>
-    <button id="closeSkill">Close</button>
-  </div>
-
   <script src="game.js"></script>
 </body>
 </html>
